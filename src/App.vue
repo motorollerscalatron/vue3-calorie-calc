@@ -1,17 +1,108 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <form @submit.prevent="search">
+    <label>Search items</label>
+    <input v-model="searchString" />
+    <button @click.prevent="search">search</button>
+    <button @click.prevent="clearText">clear</button>
+  </form>
+  <div v-if="resultsNumber > 0">Search results count: {{ resultsNumber }}</div>
+  <div>
+    <ul>
+      <li
+        v-for="(item, index) in items"
+        :key="`${item.Food_Code}-${item.Display_Name}-${index}`"
+      >
+        {{ item.Display_Name }} : {{ item.Portion_Display_Name }} of
+        {{ item.Portion_Amount }}, {{ item.Calories }} calories
+      </li>
+    </ul>
+  </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import FoodDisplayTable from "./dummy_data/food_display_table.json";
+import wildcard from "wildcard";
+var testdata = ["a.b.c", "a.b", "a", "a.b.d"];
+
+console.log("test", wildcard("a.b.*", testdata));
+
+/*
+
+page number in state to store page number to display 
+computed - to return results based on the page number
+ - if page number = 1 then we return 25 results
+ - if page number = 2 then we return 50 results
+
+In search results
+- store all the results found in the items array
+- reset page number to 1
+
+Add show more items button
+- This button will increment page number
+- This button should be hidden if the computed has the same length as items
+
+*/
+
+/*
+
+- Convert searchString to an array and rename it to searchQueries
+- Use v-for directive to loop through searchQueries array to generate input fields
+- Add down icon to add a new input field. It should just add an empty string to the searchQueries array
+- Use v-model to bind each input with the searchQueries array like so: v-model="searchQueries[index]"
+- Update the search to loop through searchQueries while comparing items
+
+*/
 
 export default {
-  name: 'App',
-  components: {
-    HelloWorld
-  }
-}
+  name: "App",
+  data() {
+    return {
+      searchString: "",
+      resultsNumber: 0,
+      items: [],
+    };
+  },
+  methods: {
+    async search() {
+      console.log({ searchString: this.searchString });
+      if (!this.searchString.length) {
+        alert("Please enter search query.");
+        return;
+      }
+      const query = this.searchString.toLowerCase();
+
+      let results = this.ingredients.filter((item) => {
+        const { Display_Name } = item;
+
+        const itemString = Display_Name.toLowerCase();
+        return (
+          itemString.includes(query) ||
+          (query.includes("*") && wildcard(query, [itemString])?.[0])
+        );
+      });
+
+      if (!results.length) {
+        this.items = [];
+        alert("no matching results");
+        return;
+      }
+      // if (results.length > 25) {
+      // }
+      this.resultsNumber = results.length;
+      this.items = results.slice(0, 25);
+      // this.items = results;
+      console.log("Results", this.items, results);
+    },
+    clearText() {
+      this.searchString = "";
+      this.items = [];
+    },
+  },
+  created() {
+    this.ingredients = FoodDisplayTable.Food_Display_Table.Food_Display_Row;
+    console.log(this.ingredients);
+  },
+};
 </script>
 
 <style>
