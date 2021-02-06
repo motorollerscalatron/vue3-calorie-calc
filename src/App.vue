@@ -60,10 +60,10 @@ console.log("test", wildcard("a.b.*", testdata));
 
 const getRandomId = () => Math.floor(Math.random() * 100);
 
-const createQueryObject = () => {
+const createQueryObject = (query = "") => {
   return {
     id: getRandomId(),
-    query: "",
+    query,
   };
 };
 
@@ -82,7 +82,10 @@ export default {
   data() {
     return {
       resultsPerPage: 10,
-      searchQueries: [createQueryObject()],
+      searchQueries: [
+        createQueryObject("ice cream"),
+        createQueryObject("steak"),
+      ],
       resultsNumber: 0,
       items: [],
     };
@@ -96,6 +99,23 @@ export default {
       this.search();
     },
     async search() {
+      const queryStrings = this.searchQueries
+        .map((s) => s.query.toLowerCase())
+        .filter((query) => query.length > 0);
+      if (!queryStrings.length) {
+        alert("Please enter search query.");
+        return;
+      }
+      const response = await fetch("/api/searchFood", {
+        method: "post",
+        body: JSON.stringify({
+          queries: queryStrings,
+        }),
+      });
+      const data = await response.json();
+      console.log(data, response);
+    },
+    async searchLocal() {
       console.log({ searchQueries: this.searchQueries });
       /*
         [
