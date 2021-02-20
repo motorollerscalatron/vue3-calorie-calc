@@ -8,20 +8,42 @@ mongoose.connect(
   { useNewUrlParser: true }
 );
 
+new Promise((resolve, reject) => {});
+
 module.exports = async (req, res) => {
   console.log("body", req.body);
   const data = JSON.parse(req.body);
   console.log("in fetch data", data.queries);
   console.log("text?", data.queries[0]);
 
-  const items = await FoodModel.find({
-    Display_Name: {
-      $regex: data.queries.join("|"),
-    },
-  });
-  console.log("items", items);
+  const result = await Promise.all(
+    // Loop through queries and for each return a promise
+    // so that the Promise.all method receives an array of promises
+    // as an argument
+    data.queries.map((query) => {
+      return new Promise((resolve) => {
+        // Use an Immediately Invoked Function Expression (IIFE) so we can use async/await
+        (async () => {
+          // Get items for the query
+          const items = await FoodModel.find({
+            Display_Name: {
+              $regex: query,
+              $options: "i",
+            },
+          });
+          // Resolve with an object that has a query with data
+          resolve({
+            query,
+            items,
+          });
+        })();
+      });
+    })
+  );
+
+  console.log("items", result);
   // await item.save();
   res.send({
-    items,
+    data: result,
   });
 };

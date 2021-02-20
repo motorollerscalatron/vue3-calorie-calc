@@ -112,8 +112,12 @@ export default {
           queries: queryStrings,
         }),
       });
-      const data = await response.json();
-      console.log(data, response);
+      const result = await response.json();
+      console.log(result, response);
+      this.items = result.data.reduce((acc, { query, items }) => {
+        acc[query] = items.slice(0, parseInt(this.resultsPerPage));
+        return acc;
+      }, {});
     },
     async searchLocal() {
       console.log({ searchQueries: this.searchQueries });
@@ -193,6 +197,7 @@ export default {
         acc[query] = results.slice(0, parseInt(this.resultsPerPage));
         return acc;
       }, {});
+
       console.log("Results", this.items, results);
     },
     clearText() {
