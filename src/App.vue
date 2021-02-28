@@ -1,21 +1,43 @@
 <template>
   <form @submit.prevent="search">
     <label>Search items</label>
-    <input v-model="searchString" />
+    <div>
+      <div v-for="item of searchQueries" :key="item.id">
+        <input type="text" v-model="item.query" />
+        <button @click.prevent="addNewQueryInput">+</button>
+      </div>
+    </div>
     <button @click.prevent="search">search</button>
     <button @click.prevent="clearText">clear</button>
   </form>
   <div v-if="resultsNumber > 0">Search results count: {{ resultsNumber }}</div>
+
   <div>
-    <ul>
-      <li
-        v-for="(item, index) in items"
-        :key="`${item.Food_Code}-${item.Display_Name}-${index}`"
-      >
-        {{ item.Display_Name }} : {{ item.Portion_Display_Name }} of
-        {{ item.Portion_Amount }}, {{ item.Calories }} calories
-      </li>
-    </ul>
+    results per page:
+    <select
+      id="results-per-page"
+      v-model="resultsPerPage"
+      @change="onResultsPerPageChange"
+    >
+      <option v-for="(item, index) in pageResultOptions" :key="index">{{
+        item
+      }}</option>
+    </select>
+  </div>
+
+  <div>
+    <div v-for="(results, query) in items" :key="query">
+      <p>{{ query }}</p>
+      <ul>
+        <li
+          v-for="(item, index) in results"
+          :key="`${item.Food_Code}-${item.Display_Name}-${index}`"
+        >
+          {{ item.Display_Name }} : {{ item.Portion_Display_Name }} of
+          {{ item.Portion_Amount }}, {{ item.Calories }} calories
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -28,23 +50,6 @@ console.log("test", wildcard("a.b.*", testdata));
 
 /*
 
-page number in state to store page number to display 
-computed - to return results based on the page number
- - if page number = 1 then we return 25 results
- - if page number = 2 then we return 50 results
-
-In search results
-- store all the results found in the items array
-- reset page number to 1
-
-Add show more items button
-- This button will increment page number
-- This button should be hidden if the computed has the same length as items
-
-*/
-
-/*
-
 - Convert searchString to an array and rename it to searchQueries
 - Use v-for directive to loop through searchQueries array to generate input fields
 - Add down icon to add a new input field. It should just add an empty string to the searchQueries array
@@ -53,54 +58,158 @@ Add show more items button
 
 */
 
+const getRandomId = () => Math.floor(Math.random() * 100);
+
+const createQueryObject = (query = "") => {
+  return {
+    id: getRandomId(),
+    query,
+  };
+};
+
+/*
+
+Don't do this, as all queries would use the same object
+
+let obj = {
+  id: getRandomId(),
+  query: "",
+};
+const createQueryObject = () => obj;
+*/
 export default {
   name: "App",
   data() {
     return {
-      searchString: "",
+      resultsPerPage: 10,
+      searchQueries: [
+        createQueryObject("ice cream"),
+        createQueryObject("steak"),
+      ],
       resultsNumber: 0,
       items: [],
     };
   },
   methods: {
+    addNewQueryInput() {
+      this.searchQueries.push(createQueryObject());
+    },
+    onResultsPerPageChange(e) {
+      console.log("on results change", e);
+      this.search();
+    },
     async search() {
-      console.log({ searchString: this.searchString });
-      if (!this.searchString.length) {
+      const queryStrings = this.searchQueries
+        .map((s) => s.query.toLowerCase())
+        .filter((query) => query.length > 0);
+      if (!queryStrings.length) {
         alert("Please enter search query.");
         return;
       }
-      const query = this.searchString.toLowerCase();
-
-      let results = this.ingredients.filter((item) => {
-        const { Display_Name } = item;
-
-        const itemString = Display_Name.toLowerCase();
-        return (
-          itemString.includes(query) ||
-          (query.includes("*") && wildcard(query, [itemString])?.[0])
-        );
+      const response = await fetch("/api/searchFood", {
+        method: "post",
+        body: JSON.stringify({
+          queries: queryStrings,
+        }),
       });
+      const result = await response.json();
+      console.log(result, response);
+      this.items = result.data.reduce((acc, { query, items }) => {
+        acc[query] = items.slice(0, parseInt(this.resultsPerPage));
+        return acc;
+      }, {});
+    },
+    async searchLocal() {
+      console.log({ searchQueries: this.searchQueries });
+      /*
+        [
+          {
+            id: 123,
+            query: 'Ice cream'
+          },
+          {
+            id: 321,
+            query: ''
+          },
+          {
+            id: 234,
+            query: 'Steak'
+          }
+        ]
 
-      if (!results.length) {
+
+        ['Ice cream', '', 'Steak]
+
+        ['Ice cream', 'Steak']
+      */
+      const queryStrings = this.searchQueries
+        .map((s) => s.query.toLowerCase())
+        .filter((query) => query.length > 0);
+      if (!queryStrings.length) {
+        alert("Please enter search query.");
+        return;
+      }
+      // const query = this.searchString.toLowerCase();
+
+      /*
+        {
+          "ice cream": [],     
+          "steak": []   
+        }
+
+      */
+
+      const aggregatedResults = queryStrings.reduce((acc, query) => {
+        acc[query] = [];
+        return acc;
+      }, {});
+      let resultsCount = 0;
+      let results = this.ingredients.reduce((acc, item) => {
+        const { Display_Name } = item;
+        const itemString = Display_Name.toLowerCase();
+        for (const query of queryStrings) {
+          const match =
+            itemString.includes(query) ||
+            (query.includes("*") && wildcard(query, [itemString])?.[0]);
+
+          if (match) {
+            resultsCount++;
+            acc[query].push(item);
+            break;
+          }
+        }
+
+        return acc;
+      }, aggregatedResults);
+
+      console.log("Aggregated results", aggregatedResults);
+
+      /* if (!Object.keys(results).length) {
         this.items = [];
         alert("no matching results");
         return;
-      }
+      } */
       // if (results.length > 25) {
       // }
-      this.resultsNumber = results.length;
-      this.items = results.slice(0, 25);
-      // this.items = results;
+      this.resultsNumber = resultsCount;
+      // this.items = results.slice(0, parseInt(this.resultsPerPage));
+      this.items = Object.entries(results).reduce((acc, [query, results]) => {
+        acc[query] = results.slice(0, parseInt(this.resultsPerPage));
+        return acc;
+      }, {});
+
       console.log("Results", this.items, results);
     },
     clearText() {
-      this.searchString = "";
+      this.searchQueries = [createQueryObject()];
       this.items = [];
     },
   },
   created() {
     this.ingredients = FoodDisplayTable.Food_Display_Table.Food_Display_Row;
     console.log(this.ingredients);
+
+    this.pageResultOptions = [10, 25, 50, 75, 100];
   },
 };
 </script>
