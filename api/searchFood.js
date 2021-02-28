@@ -8,8 +8,6 @@ mongoose.connect(
   { useNewUrlParser: true }
 );
 
-new Promise((resolve, reject) => {});
-
 module.exports = async (req, res) => {
   console.log("body", req.body);
   const data = JSON.parse(req.body);
@@ -27,7 +25,7 @@ module.exports = async (req, res) => {
           // Get items for the query
           const items = await FoodModel.find({
             Display_Name: {
-              $regex: query,
+              $regex: query, // for real application we might be able to improve the performance by replacing regex with other methods like elasticsearch
               $options: "i",
             },
           });
@@ -41,8 +39,6 @@ module.exports = async (req, res) => {
     })
   );
 
-  console.log("items", result);
-  // await item.save();
   res.send({
     data: result,
   });
